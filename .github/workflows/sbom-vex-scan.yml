@@ -19,6 +19,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Setup Java 25
+        if: matrix.project == 'webgoat'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: 25
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: vuln_apps/webgoat/pom.xml
+
+      - name: Populate local Maven repository
+        if: matrix.project == 'webgoat'
+        working-directory: vuln_apps/webgoat
+        run: mvn -B dependency:resolve
+
       - name: Generate VEXs (Human)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
