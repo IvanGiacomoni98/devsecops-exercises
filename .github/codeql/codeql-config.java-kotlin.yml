@@ -1,1 +1,12 @@
 name: "Java-Kotlin configuration"
+
+# Besides default queries, this adds security-extended
+# other alternative is security-and-quality
+queries:
+  - uses: security-extended
+
+# Filters recommendation output
+query-filters:
+  - exclude:
+      problem.severity:
+        - recommendation

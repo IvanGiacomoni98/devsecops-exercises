@@ -1,3 +1,17 @@
 name: "Javascript-Typescript configuration"
+
+# Besides default queries, this adds security-and-quality
+# other alternative is security-extended
+queries:
+  - uses: security-and-quality
+
+# Exclude not relevant code for analysis
 paths-ignore:
-  - '**/juice-shop/**/codefixes/**'
+  - '**/juice-shop/**/codefixes/**'   # snippet volutamente vulnerabili delle challenge
+  - '**/test/**'
+  - '**/*.spec.ts'
+
+# Remove noisy finding
+query-filters:
+  - exclude:
+      id: js/unused-local-variable

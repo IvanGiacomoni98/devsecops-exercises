@@ -37,6 +37,7 @@ jobs:
         with:
           config-file: ./.github/codeql/codeql-config.${{ matrix.language }}.yml
           languages: ${{ matrix.language }}
+          dependency-caching: true
 
       # Build the codebase, codeql offer an autobuild steps for most of his supported languages: https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/codeql-code-scanning-for-compiled-languages
       - name: Autobuild
@@ -50,6 +51,7 @@ jobs:
         with:
           java-version: 25
           distribution: temurin
+          cache: maven
 
       - name: Compile project
         if: matrix.language == 'java-kotlin'
