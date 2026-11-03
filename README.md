@@ -83,8 +83,8 @@ Some of the exercises we will be working on during the course require the use of
 To use **Docker**, you can follow the [installation instructions](https://docs.docker.com/engine/install/) specific to the Linux operating system you will be using during the course.  
 
 To speed up access to the content, once you have installed **Docker**, download the following images to your workstation a few days before the course begins:
-- `docker pull aquasec/trivy@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e` (0.70.0)
-- `docker pull zaproxy/zap-stable@sha256:4f67b3e798fd4e23649265eac9ad84a67e883850c96691fc1743b2a6e1cc7ed0` (2.17.0)
+- `docker pull aquasec/trivy@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222` (0.76.0)
+- `docker pull zaproxy/zap-stable@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2` (2.17.0, build 20261008)
 
 # External resources
 In this section, you'll find links to the tools and external resources shared during the training.

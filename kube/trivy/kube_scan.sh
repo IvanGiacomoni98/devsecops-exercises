@@ -2,6 +2,7 @@
 # SCAN cluster for vulnerabilities
 # $1 is cluster ip
 
+TRIVY_IMAGE=${TRIVY_IMAGE:-aquasec/trivy@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222} # 0.76.0
 TRIVY_DB=${TRIVY_DB:-ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db}
 TRIVY_JAVA_DB=${TRIVY_JAVA_DB:-ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db}
 CLUSTER_IP=$1
@@ -31,9 +32,9 @@ docker run --rm \
     -v "$KUBE_CONFIG_FILE":/root/.kube/config:z \
     -v "$HOME"/Library/Caches:/root/.cache/:z \
     -e TRIVY_DB_REPOSITORY="$TRIVY_DB" \
-    -e TRIVY_JAVA_DB_REPOSITORY="$TRIVY_DB_JAVA" \
+    -e TRIVY_JAVA_DB_REPOSITORY="$TRIVY_JAVA_DB" \
     --add-host "$KUBE_CONFIG_HOST":"$CLUSTER_IP" \
-    aquasec/trivy@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e k8s \
+    "$TRIVY_IMAGE" k8s \
     --severity $severity \
     --include-namespaces $namespaces \
     --include-kinds $resources \

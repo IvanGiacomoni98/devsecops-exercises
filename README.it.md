@@ -83,8 +83,8 @@ Per utilizzare **docker**,seguite le [istruzioni di installazione](https://docs.
 
 
 Per velocizzare la fruzione dei contenuti, una volta installato **docker**, scaricate le seguenti immagini sulla vostra workstation nei giorni precedenti all'inizio del corso:
-- `docker pull aquasec/trivy@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e` (0.70.0)
-- `docker pull zaproxy/zap-stable@sha256:4f67b3e798fd4e23649265eac9ad84a67e883850c96691fc1743b2a6e1cc7ed0` (2.17.0)
+- `docker pull aquasec/trivy@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222` (0.76.0)
+- `docker pull zaproxy/zap-stable@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2` (2.17.0, build 20261008)
 
 # Risorse esterne
 In questa sezione, i link agli strumenti e alle risorse esterne condivise durante la formazione.

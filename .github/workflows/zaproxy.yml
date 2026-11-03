@@ -14,7 +14,8 @@ jobs:
 
     steps:
       - name: ZAP Scan
-        uses: zaproxy/action-full-scan@bee4e5be916301228d2b1b2dcad73aab6fa6a25b # v0.13.0
+        uses: zaproxy/action-full-scan@3c58388149901b9a03b7718852c5ba889646c27c # v0.13.0
         with:
+          docker_name: zaproxy/zap-stable@sha256:030d3df57735dacbb83464854758e674dd9ad01d79d12a129a8e58b1fd384238 # 2.17.0 (20261026)
           target: http://${{ secrets.CLUSTER_IP }}:${{ matrix.port}}
           artifact_name: zap_scan_${{ secrets.CLUSTER_IP }}_${{ matrix.port }}
