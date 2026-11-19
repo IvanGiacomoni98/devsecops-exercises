@@ -7,30 +7,51 @@ jobs:
 ## Exercise SBOM generation
   sbom:
     name: Generate app SBOM
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
         project: ["webgoat", "juice-shop"]
         cdx_spec_version: ["1.6"]
 
-    container:
-      image: ghcr.io/cdxgen/cdxgen@sha256:e4b5773b4bdd25ecc0602ab1bdada1efea38ad9a2e354cf6fa6aa13b5671139b # 13.5.0
-      options: --user root
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Generate SBOMs
-        working-directory: vuln_apps/${{ matrix.project }}
+      # WebGoat: SBOM from Maven dependencies (cyclonedx-maven-plugin)
+      - name: Setup Java 25
+        if: matrix.project == 'webgoat'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: 25
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: vuln_apps/webgoat/pom.xml
+
+      - name: Generate SBOM (cyclonedx-maven-plugin)
+        if: matrix.project == 'webgoat'
+        working-directory: vuln_apps/webgoat
         run: >
-          cdxgen 
-          --format cyclonedx 
-          --spec-version="${{ matrix.cdx_spec_version }}" 
-          --project-name="${{ matrix.project }}" 
-          --project-version="${{ github.run_number }}" 
-          -o "${{ matrix.project }}_bom.json"
+          mvn -B org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
+          -DprojectType=application
+          -DschemaVersion=${{ matrix.cdx_spec_version }}
+          -DoutputFormat=json
+          -DoutputName=${{ matrix.project }}_bom
+          -DoutputDirectory=.
+
+      # Juice Shop: SBOM from npm dependencies (project "sbom" script, cyclonedx-npm)
+      - name: Setup Node 24
+        if: matrix.project == 'juice-shop'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Generate SBOM (cyclonedx-npm)
+        if: matrix.project == 'juice-shop'
+        working-directory: vuln_apps/juice-shop
+        run: |
+          npm install --ignore-scripts
+          npm run sbom -- --spec-version ${{ matrix.cdx_spec_version }} --output-file ${{ matrix.project }}_bom.json
 
       - name: Upload results
         if: always()
@@ -44,7 +65,7 @@ jobs:
 ## Exercise Docker SBOM generation
   sbom-docker:
     name: Generate docker SBOM
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -105,7 +126,7 @@ jobs:
 ## Exercise Merge multiple SBOMs
   merge-sbom:
     name: Merge previously generated SBOM
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: ["sbom", "sbom-docker"]
     container: cyclonedx/cyclonedx-cli@sha256:252c2e26f468c25fea1e63ecde1bc3198ad6e9dbb57f5ed3236bddcb2281b3a7 # 0.33.1
     strategy:
@@ -143,3 +164,42 @@ jobs:
           path: ${{ matrix.project }}_merged_sbom.json
           retention-days: 5
           if-no-files-found: error
+
+## Exercise SCVS assessment
+  scvs:
+    name: SCVS assessment
+    runs-on: ubuntu-26.04
+    needs: ["merge-sbom"]
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ["webgoat", "juice-shop"]
+
+    container:
+      image: ghcr.io/cdxgen/cdxgen@sha256:e4b5773b4bdd25ecc0602ab1bdada1efea38ad9a2e354cf6fa6aa13b5671139b # 13.5.0
+      options: --user root
+
+    steps:
+      - name: Download artifact sbom-merged
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom-${{matrix.project}}-merged
+          path: ./sboms-${{matrix.project}}
+
+      - name: SCVS report (JSON)
+        run: >
+          cdx-validate
+          -i sboms-${{matrix.project}}/${{ matrix.project }}_merged_sbom.json
+          --benchmark scvs-l1,scvs-l2,scvs-l3
+          --include-pass
+          --no-include-manual
+          --fail-severity critical
+          -r json
+          -o scvs-${{ matrix.project }}.json
+
+      - name: Upload SCVS report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scvs-${{ matrix.project }}
+          path: scvs-${{ matrix.project }}.json
+          retention-days: 5

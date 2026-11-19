@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, type OnChanges, Output, inject } from '@angular/core'
+import { Component, EventEmitter, Input, type OnChanges, Output, inject, ChangeDetectionStrategy } from '@angular/core'
 import { FilterSetting } from '../../filter-settings/FilterSetting'
 import { type EnrichedChallenge } from '../../types/EnrichedChallenge'
 import { MatDialog } from '@angular/material/dialog'
@@ -17,6 +17,7 @@ import { MatIconModule } from '@angular/material/icon'
 import { MatFormFieldModule, MatPrefix, MatLabel } from '@angular/material/form-field'
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'filter-settings',
   templateUrl: './filter-settings.component.html',
   styleUrls: ['./filter-settings.component.scss'],
@@ -37,9 +38,24 @@ export class FilterSettingsComponent implements OnChanges {
   @Input()
   public reset: () => void
 
-  public tags = new Set<string>()
+  public static readonly EXTERNAL_DEPENDENCY_TAG = 'External Dependency'
+  public tags: string[] = []
   ngOnChanges () {
-    this.tags = new Set(this.allChallenges.flatMap((challenge) => challenge.tagList))
+    const rawTags = new Set(
+      this.allChallenges.flatMap((challenge) => challenge.tagList)
+    )
+    const hasRequiresTag = [...rawTags].some((tag) => tag.startsWith('Requires '))
+    const displayTags = new Set<string>()
+    for (const tag of rawTags) {
+      if (tag.startsWith('Requires ')) {
+        if (hasRequiresTag) {
+          displayTags.add(FilterSettingsComponent.EXTERNAL_DEPENDENCY_TAG)
+        }
+      } else {
+        displayTags.add(tag)
+      }
+    }
+    this.tags = [...displayTags].sort((a, b) => a.localeCompare(b))
   }
 
   onDifficultyFilterChange (difficulties: (1 | 2 | 3 | 4 | 5 | 6)[]) {
@@ -73,12 +89,15 @@ export class FilterSettingsComponent implements OnChanges {
   }
 
   public canBeReset (): boolean {
-    return this.filterSetting.difficulties.length > 0 ||
-      this.filterSetting.status !== null ||
-      this.filterSetting.tags.length > 0 ||
-      this.filterSetting.categories.length > 0 ||
-      !!this.filterSetting.searchQuery ||
+    const nonDefaultFilters = [
+      this.filterSetting.difficulties.length > 0,
+      this.filterSetting.status !== null,
+      this.filterSetting.tags.length > 0,
+      this.filterSetting.categories.length > 0,
+      !!this.filterSetting.searchQuery,
       !this.filterSetting.showDisabledChallenges
+    ]
+    return nonDefaultFilters.some(Boolean)
   }
 
   public openAdditionalSettingsDialog () {

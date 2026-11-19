@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { Component, NgZone, type OnInit, inject } from '@angular/core'
+import { Component, NgZone, type OnInit, inject, ChangeDetectionStrategy } from '@angular/core'
 import { OrderHistoryService } from '../Services/order-history.service'
 import { MatTableDataSource, MatTable, MatColumnDef, MatHeaderCellDef, MatHeaderCell, MatCellDef, MatCell, MatHeaderRowDef, MatHeaderRow, MatRowDef, MatRow } from '@angular/material/table'
 import { BasketService } from '../Services/basket.service'
@@ -36,6 +36,7 @@ export interface Order {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-order-history',
   templateUrl: './order-history.component.html',
   styleUrls: ['./order-history.component.scss'],
@@ -95,6 +96,7 @@ export class OrderHistoryComponent implements OnInit {
           description: product.description,
           image: product.image,
           price: product.price,
+          deluxePrice: product.deluxePrice,
           points: Math.round(product.price / 10)
         }
         this.dialog.open(ProductDetailsComponent, {

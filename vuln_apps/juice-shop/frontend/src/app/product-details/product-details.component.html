@@ -8,7 +8,9 @@
   <div class="container">
     <div class="details-row">
       <div class="no-shrink">
-        <img class="img-thumbnail" [src]="'assets/public/images/products/'+data.productData.image" alt="{{data.productData.name}}">
+        <app-product-image [alternateImages]="data.productData.alternateImages">
+          <img class="img-thumbnail" [src]="'assets/public/images/products/'+data.productData.image" alt="{{data.productData.name}}">
+        </app-product-image>
       </div>
 
       <div>
@@ -79,7 +81,7 @@
     <mat-divider class="detail-divider"></mat-divider>
 
     <h4 [style.display]="isLoggedIn() ? 'block' : 'none' " translate>WRITE_REVIEW</h4>
-    <mat-form-field appearance="outline" color="accent"
+    <mat-form-field appearance="outline" color="tertiary"
       [style.display]="isLoggedIn() ? 'block' : 'none' " floatLabel="always">
       <mat-label >{{"LABEL_REVIEW" | translate}}</mat-label>
       <mat-hint>

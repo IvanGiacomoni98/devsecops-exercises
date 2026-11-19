@@ -185,19 +185,18 @@ public abstract class IntegrationTest {
 
   public void checkAssignment(
       String url, ContentType contentType, String body, boolean expectedResult) {
-    MatcherAssert.assertThat(
-        RestAssured.given()
-            .when()
-            .relaxedHTTPSValidation()
-            .contentType(contentType)
-            .cookie("JSESSIONID", getWebGoatCookie())
-            .body(body)
-            .post(url)
-            .then()
-            .statusCode(200)
-            .extract()
-            .path("lessonCompleted"),
-        CoreMatchers.is(expectedResult));
+    RestAssured.given()
+        .when()
+        .relaxedHTTPSValidation()
+        .contentType(contentType)
+        .cookie("JSESSIONID", getWebGoatCookie())
+        .body(body)
+        .post(url)
+        .then()
+        .log()
+        .ifValidationFails(LogDetail.BODY)
+        .statusCode(200)
+        .body("lessonCompleted", CoreMatchers.is(expectedResult));
   }
 
   public void checkAssignmentWithGet(String url, Map<String, ?> params, boolean expectedResult) {
@@ -248,9 +247,22 @@ public abstract class IntegrationTest {
     RestAssured.given()
         .when()
         .relaxedHTTPSValidation()
-        .cookie("WEBWOLFSESSION", getWebWolfCookie())
-        .delete(webWolfUrlConfig.url("mail"))
+        .cookie("JSESSIONID", getWebGoatCookie())
+        .delete(webGoatUrlConfig.url("mail"))
         .then()
         .statusCode(HttpStatus.ACCEPTED.value());
+  }
+
+  public String readMailbox() {
+    return RestAssured.given()
+        .when()
+        .relaxedHTTPSValidation()
+        .cookie("JSESSIONID", getWebGoatCookie())
+        .get(webGoatUrlConfig.url("mail"))
+        .then()
+        .extract()
+        .response()
+        .getBody()
+        .asString();
   }
 }

@@ -1,27 +1,25 @@
-import { Component, NgZone, type OnDestroy, type OnInit, inject, AfterViewInit } from '@angular/core'
+import { Component, NgZone, type OnDestroy, type OnInit, inject, ChangeDetectionStrategy } from '@angular/core'
+import { type Subscription, combineLatest, firstValueFrom } from 'rxjs'
+import { MatProgressSpinner } from '@angular/material/progress-spinner'
 import { ActivatedRoute, Router } from '@angular/router'
 import { DomSanitizer } from '@angular/platform-browser'
-import { MatDialog } from '@angular/material/dialog'
-import { type Subscription, combineLatest, firstValueFrom } from 'rxjs'
+import { TranslateModule } from '@ngx-translate/core'
+import { NgClass } from '@angular/common'
 
+import { HintService } from '../Services/hint.service'
+import { sortChallenges } from './helpers/challenge-sorting'
+import { SocketIoService } from '../Services/socket-io.service'
+import { ChallengeService } from '../Services/challenge.service'
+import { filterChallenges } from './helpers/challenge-filtering'
+import { type EnrichedChallenge } from './types/EnrichedChallenge'
+import { type Config, ConfigurationService } from '../Services/configuration.service'
 import { fromQueryParams, toQueryParams } from './filter-settings/query-params-converters'
 import { DEFAULT_FILTER_SETTING, type FilterSetting } from './filter-settings/FilterSetting'
-import { type Config, ConfigurationService } from '../Services/configuration.service'
-import { CodeSnippetComponent } from '../code-snippet/code-snippet.component'
-import { ChallengeService } from '../Services/challenge.service'
-import { HintService } from '../Services/hint.service'
-import { filterChallenges } from './helpers/challenge-filtering'
-import { SocketIoService } from '../Services/socket-io.service'
-import { type EnrichedChallenge } from './types/EnrichedChallenge'
-import { sortChallenges } from './helpers/challenge-sorting'
-import { TranslateModule } from '@ngx-translate/core'
 import { ChallengeCardComponent } from './components/challenge-card/challenge-card.component'
-import { TutorialModeWarningComponent } from './components/tutorial-mode-warning/tutorial-mode-warning.component'
-import { ChallengesUnavailableWarningComponent } from './components/challenges-unavailable-warning/challenges-unavailable-warning.component'
-import { MatProgressSpinner } from '@angular/material/progress-spinner'
 import { FilterSettingsComponent } from './components/filter-settings/filter-settings.component'
-import { NgClass } from '@angular/common'
+import { TutorialModeWarningComponent } from './components/tutorial-mode-warning/tutorial-mode-warning.component'
 import { DifficultyOverviewScoreCardComponent } from './components/difficulty-overview-score-card/difficulty-overview-score-card.component'
+import { ChallengesUnavailableWarningComponent } from './components/challenges-unavailable-warning/challenges-unavailable-warning.component'
 import { CodingChallengeProgressScoreCardComponent } from './components/coding-challenge-progress-score-card/coding-challenge-progress-score-card.component'
 import { HackingChallengeProgressScoreCardComponent } from './components/hacking-challenge-progress-score-card/hacking-challenge-progress-score-card.component'
 
@@ -39,19 +37,19 @@ interface CodeChallengeSolvedWebsocket {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-score-board',
   templateUrl: './score-board.component.html',
   styleUrls: ['./score-board.component.scss'],
   imports: [HackingChallengeProgressScoreCardComponent, CodingChallengeProgressScoreCardComponent, DifficultyOverviewScoreCardComponent, FilterSettingsComponent, MatProgressSpinner, ChallengesUnavailableWarningComponent, TutorialModeWarningComponent, ChallengeCardComponent, NgClass, TranslateModule]
 })
-export class ScoreBoardComponent implements OnInit, OnDestroy, AfterViewInit {
+export class ScoreBoardComponent implements OnInit, OnDestroy {
   private readonly challengeService = inject(ChallengeService)
   private readonly hintService = inject(HintService)
   private readonly configurationService = inject(ConfigurationService)
   private readonly sanitizer = inject(DomSanitizer)
   private readonly ngZone = inject(NgZone)
   private readonly io = inject(SocketIoService)
-  private readonly dialog = inject(MatDialog)
   private readonly router = inject(Router)
   private readonly route = inject(ActivatedRoute)
 
@@ -60,7 +58,6 @@ export class ScoreBoardComponent implements OnInit, OnDestroy, AfterViewInit {
   public filterSetting: FilterSetting = structuredClone(DEFAULT_FILTER_SETTING)
   public applicationConfiguration: Config | null = null
   public lastUnlockedChallengeKey: string | null = null
-  public highlightedChallengeKey: string | null = null
 
   public isInitialized = false
 
@@ -96,17 +93,11 @@ export class ScoreBoardComponent implements OnInit, OnDestroy, AfterViewInit {
     const routerSubscription = this.route.queryParams.subscribe((queryParams) => {
       this.filterSetting = fromQueryParams(queryParams)
       this.filterAndUpdateChallenges()
-      this.handleHighlightChallenge(queryParams)
     })
     this.subscriptions.push(routerSubscription)
 
     this.io.socket().on('challenge solved', this.onChallengeSolvedWebsocket.bind(this))
     this.io.socket().on('code challenge solved', this.onCodeChallengeSolvedWebsocket.bind(this))
-  }
-
-  ngAfterViewInit (): void {
-    const queryParams = this.route.snapshot.queryParams
-    this.handleHighlightChallenge(queryParams)
   }
 
   ngOnDestroy (): void {
@@ -183,19 +174,6 @@ export class ScoreBoardComponent implements OnInit, OnDestroy, AfterViewInit {
     })
   }
 
-  openCodingChallengeDialog (challengeKey: string) {
-    const challenge = this.allChallenges.find((challenge) => challenge.key === challengeKey)
-
-    this.dialog.open(CodeSnippetComponent, {
-      disableClose: true,
-      data: {
-        key: challengeKey,
-        name: challenge.name,
-        codingChallengeStatus: challenge.codingChallengeStatus
-      }
-    })
-  }
-
   async repeatChallengeNotification (challengeKey: string) {
     const challenge = this.allChallenges.find((challenge) => challenge.key === challengeKey)
     await firstValueFrom(this.challengeService.repeatNotification(encodeURIComponent(challenge.name)))
@@ -211,32 +189,4 @@ export class ScoreBoardComponent implements OnInit, OnDestroy, AfterViewInit {
     })
   }
 
-    private handleHighlightChallenge (queryParams: any): void {
-    const targetKey = queryParams?.highlightChallenge
-    if (!targetKey || targetKey === this.highlightedChallengeKey) {
-      return
-    }
-    setTimeout(() => {
-      const element = document.getElementById(`challenge-${targetKey}`)
-      if (element) {
-        this.highlightedChallengeKey = targetKey
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      }
-      else{
-        return
-      }
-      setTimeout(() => {
-        this.highlightedChallengeKey = null
-
-        const cleanedQueryParams = { ...this.route.snapshot.queryParams }
-        delete cleanedQueryParams.highlightChallenge
-
-        this.router.navigate([], {
-          relativeTo: this.route,
-          queryParams: cleanedQueryParams,
-          replaceUrl: true
-        })
-      }, 4000)
-    }, 300)
-  }
 }

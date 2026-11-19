@@ -6,7 +6,7 @@
 import { TranslateService, TranslateModule } from '@ngx-translate/core'
 import { ChallengeService } from '../Services/challenge.service'
 import { ConfigurationService } from '../Services/configuration.service'
-import { ChangeDetectorRef, Component, NgZone, type OnInit, inject } from '@angular/core'
+import { ChangeDetectorRef, Component, NgZone, type OnInit, inject, ChangeDetectionStrategy } from '@angular/core'
 import { CookieService } from 'ngy-cookie'
 import { CountryMappingService } from '../Services/country-mapping.service'
 import { SocketIoService } from '../Services/socket-io.service'
@@ -37,6 +37,7 @@ interface ChallengeSolvedNotification {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-challenge-solved-notification',
   templateUrl: './challenge-solved-notification.component.html',
   styleUrls: ['./challenge-solved-notification.component.scss'],
@@ -164,9 +165,7 @@ export class ChallengeSolvedNotificationComponent implements OnInit {
       return
     }
     this.ngZone.run(() => {
-      void this.router.navigate(["/score-board"], {
-        queryParams: { highlightChallenge: challengeKey },
-      })
+      void this.router.navigate(['/coding-challenge', challengeKey])
     })
   }
 }

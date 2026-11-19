@@ -130,3 +130,5 @@ dist
 
 kube/trivy/sboms
 vuln_apps/sboms
+# DefectDojo local secrets (see defect-dojo/.env.example)
+defect-dojo/.env

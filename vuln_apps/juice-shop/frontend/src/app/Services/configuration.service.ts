@@ -39,6 +39,11 @@ export interface Config {
       nftUrl: string
       questionnaireUrl: string
     }
+    chatBot: {
+      name: string
+      avatar: string
+      sampleQuestions: string[]
+    }
     recyclePage: {
       topProductImage: string
       bottomProductImage: string
@@ -80,6 +85,7 @@ export interface Config {
     restrictToTutorialsFirst: boolean
     safetyMode: string
     overwriteUrlForProductTamperingChallenge: string
+    overwriteUrlForCsrfChallenge: string
   }
   hackingInstructor: {
     isEnabled: boolean

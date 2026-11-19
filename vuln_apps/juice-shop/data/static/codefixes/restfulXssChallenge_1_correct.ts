@@ -3,7 +3,7 @@ ngAfterViewInit () {
     const quantities = this.quantityService.getAll()
     forkJoin([quantities, products]).subscribe({
       next: ([quantities, products]) => {
-        const dataTable: TableEntry[] = []
+        const dataTable: ProductTableEntry[] = []
         this.tableData = products
         for (const product of products) {
           dataTable.push({
@@ -12,7 +12,8 @@ ngAfterViewInit () {
             deluxePrice: product.deluxePrice,
             id: product.id,
             image: product.image,
-            description: product.description
+            description: product.description,
+            alternateImages: product.alternateImages
           })
         }
         for (const quantity of quantities) {
@@ -23,34 +24,20 @@ ngAfterViewInit () {
             continue
           }
           entry.quantity = quantity.quantity
+          entry.limitPerUser = quantity.limitPerUser
         }
-        this.dataSource = new MatTableDataSource<TableEntry>(dataTable)
-        for (let i = 1; i <= Math.ceil(this.dataSource.data.length / 12); i++) {
-          this.pageSizeOptions.push(i * 12)
-        }
-        this.paginator.pageSizeOptions = this.pageSizeOptions
+        this.dataSource = new MatTableDataSource<ProductTableEntry>(dataTable)
+        this.updatePageSizeOptions()
         this.dataSource.paginator = this.paginator
+        this.setupResponsivePageSize()
         this.gridDataSource = this.dataSource.connect()
         this.resultsLength = this.dataSource.data.length
         this.filterTable()
         this.routerSubscription = this.router.events.subscribe(() => {
           this.filterTable()
         })
-        this.breakpoint = this.calculateBreakpoint(window.innerWidth)
         this.cdRef.detectChanges()
       },
       error: (err) => { console.log(err) }
     })
-  }
-
-  onResize (event: any) {
-    this.breakpoint = this.calculateBreakpoint(event.target.innerWidth)
-  }
-
-  private calculateBreakpoint (width: number): number {
-    if (width >= 2600) return 6
-    if (width >= 1740) return 4
-    if (width >= 1280) return 3
-    if (width >= 850) return 2
-    return 1
   }

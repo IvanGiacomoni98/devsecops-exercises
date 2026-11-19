@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -38,10 +39,19 @@ public class WebSecurityConfig {
                         "/js/**",
                         "/fonts/**",
                         "/plugins/**",
+                        "/proxy.pac",
                         "/registration",
                         "/register.mvc",
                         "/actuator/**")
                     .permitAll()
+                    // Lessons deliver mail by POSTing to the mailbox over HTTP (RestTemplate),
+                    // which carries no session, so the receiving endpoint must be public. Reading
+                    // the mailbox (GET /mail) stays authenticated so users only see their own mail.
+                    .requestMatchers(HttpMethod.POST, "/mail")
+                    .permitAll()
+                    // Administration endpoints: restricted to WEBGOAT_ADMIN only.
+                    .requestMatchers("/service/admin/**")
+                    .hasAuthority("WEBGOAT_ADMIN")
                     .anyRequest()
                     .authenticated())
         .formLogin(

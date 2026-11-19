@@ -3,20 +3,22 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { type Request, type Response, type NextFunction } from 'express'
+import { type NextFunction, type Request, type Response } from 'express'
 import { Op } from 'sequelize'
 import jwt from 'jsonwebtoken'
 import config from 'config'
 import jws from 'jws'
 
-import { products, challenges, retrieveBlueprintChallengeFile } from '../data/datacache'
-import type { Product as ProductConfig } from '../lib/config.types'
+import { challenges, products, retrieveBlueprintChallengeFile } from '../data/datacache'
+import type { Product as ProductConfig } from '../lib/config.schema'
 import { type Challenge, type Product } from '../data/types'
 import * as challengeUtils from '../lib/challengeUtils'
+import * as antiCheat from '../lib/antiCheat'
 import { ComplaintModel } from '../models/complaint'
 import { FeedbackModel } from '../models/feedback'
 import * as security from '../lib/insecurity'
 import * as utils from '../lib/utils'
+import { buildSystemPrompt } from './chat'
 
 export const emptyUserRegistration = () => (req: Request, res: Response, next: NextFunction) => {
   challengeUtils.solveIf(challenges.emptyUserRegistration, () => {
@@ -59,17 +61,20 @@ export const passwordRepeatChallenge = () => (req: Request, res: Response, next:
   next()
 }
 
-export const accessControlChallenges = () => ({ url }: Request, res: Response, next: NextFunction) => {
-  challengeUtils.solveIf(challenges.scoreBoardChallenge, () => { return utils.endsWith(url, '/1px.png') })
-  challengeUtils.solveIf(challenges.web3SandboxChallenge, () => { return utils.endsWith(url, '/11px.png') })
-  challengeUtils.solveIf(challenges.adminSectionChallenge, () => { return utils.endsWith(url, '/19px.png') })
-  challengeUtils.solveIf(challenges.tokenSaleChallenge, () => { return utils.endsWith(url, '/56px.png') })
-  challengeUtils.solveIf(challenges.privacyPolicyChallenge, () => { return utils.endsWith(url, '/81px.png') })
-  challengeUtils.solveIf(challenges.extraLanguageChallenge, () => { return utils.endsWith(url, '/tlh_AA.json') })
-  challengeUtils.solveIf(challenges.retrieveBlueprintChallenge, () => { return utils.endsWith(url, retrieveBlueprintChallengeFile ?? undefined) })
-  challengeUtils.solveIf(challenges.securityPolicyChallenge, () => { return utils.endsWith(url, '/security.txt') })
-  challengeUtils.solveIf(challenges.missingEncodingChallenge, () => { return utils.endsWith(url.toLowerCase(), '%e1%93%9a%e1%98%8f%e1%97%a2-%23zatschi-%23whoneedsfourlegs-1572600969477.jpg') })
+export const accessControlChallenges = () => (req: Request, res: Response, next: NextFunction) => {
+  const { url } = req
+  const uiBypassed = req.header('sec-fetch-dest') === 'document' || !req.header('referer')
+  challengeUtils.solveIf(challenges.scoreBoardChallenge, () => { return url.endsWith('/1px.png') }, false, uiBypassed)
+  challengeUtils.solveIf(challenges.web3SandboxChallenge, () => { return url.endsWith('/11px.png') }, false, uiBypassed)
+  challengeUtils.solveIf(challenges.adminSectionChallenge, () => { return url.endsWith('/19px.png') }, false, uiBypassed)
+  challengeUtils.solveIf(challenges.tokenSaleChallenge, () => { return url.endsWith('/56px.png') }, false, uiBypassed)
+  challengeUtils.solveIf(challenges.privacyPolicyChallenge, () => { return url.endsWith('/81px.png') }, false, uiBypassed)
+  challengeUtils.solveIf(challenges.extraLanguageChallenge, () => { return url.endsWith('/tlh_AA.json') })
+  challengeUtils.solveIf(challenges.retrieveBlueprintChallenge, () => { return url.endsWith(retrieveBlueprintChallengeFile ?? '') })
+  challengeUtils.solveIf(challenges.securityPolicyChallenge, () => { return url.endsWith('/security.txt') })
+  challengeUtils.solveIf(challenges.missingEncodingChallenge, () => { return url.toLowerCase().endsWith('%e1%93%9a%e1%98%8f%e1%97%a2-%23zatschi-%23whoneedsfourlegs-1572600969477.jpg') })
   challengeUtils.solveIf(challenges.accessLogDisclosureChallenge, () => { return url.match(/access\.log(0-9-)*/) })
+  challengeUtils.solveIf(challenges.misplacedIacFiles, () => { return (url.endsWith('.tf') || url.endsWith('Dockerfile') || url.endsWith('docker-compose.yml')) })
   next()
 }
 
@@ -84,6 +89,9 @@ export const jwtChallenges = () => (req: Request, res: Response, next: NextFunct
   }
   if (utils.isChallengeEnabled(challenges.jwtForgedChallenge) && challengeUtils.notSolved(challenges.jwtForgedChallenge)) {
     jwtChallenge(challenges.jwtForgedChallenge, req, 'HS256', /rsa_lord@/)
+  }
+  if (challengeUtils.notSolved(challenges.iacLeakedKeyChallenge)) {
+    jwtChallenge(challenges.iacLeakedKeyChallenge, req, 'RS256', /cloud-admin@/)
   }
   next()
 }
@@ -139,9 +147,10 @@ async function checkPatternInFeedbackAndComplaints (
 ): Promise<void> {
   const feedbackCheck = FeedbackModel.findAndCountAll({
     where: { comment: fieldCriteria }
-  }).then(({ count }: { count: number }) => {
+  }).then(({ count, rows }: { count: number, rows: any[] }) => {
     if (count > 0) {
-      challengeUtils.solve(challenge)
+      const isCheating = rows.some((row: any) => antiCheat.checkForSourceFileOverlap(challenge.key, row.comment ?? ''))
+      challengeUtils.solve(challenge, false, isCheating)
     }
   }).catch(() => {
     throw new Error('Unable to retrieve feedback details. Please try again')
@@ -149,9 +158,10 @@ async function checkPatternInFeedbackAndComplaints (
 
   const complaintCheck = ComplaintModel.findAndCountAll({
     where: { message: fieldCriteria }
-  }).then(({ count }: { count: number }) => {
+  }).then(({ count, rows }: { count: number, rows: any[] }) => {
     if (count > 0) {
-      challengeUtils.solve(challenge)
+      const isCheating = rows.some((row: any) => antiCheat.checkForSourceFileOverlap(challenge.key, row.message ?? ''))
+      challengeUtils.solve(challenge, false, isCheating)
     }
   }).catch(() => {
     throw new Error('Unable to retrieve complaint details. Please try again')
@@ -194,6 +204,12 @@ export const databaseRelatedChallenges = () => (req: Request, res: Response, nex
   if (challengeUtils.notSolved(challenges.leakedApiKeyChallenge)) {
     leakedApiKeyChallenge()
   }
+  if (challengeUtils.notSolved(challenges.vulnerableDockerImageChallenge)) {
+    vulnerableDockerImageChallenge()
+  }
+  if (challengeUtils.notSolved(challenges.systemPromptExtractionChallenge)) {
+    void systemPromptExtractionChallenge()
+  }
   next()
 }
 
@@ -207,8 +223,8 @@ function changeProductChallenge (osaft: Product) {
       }
     }
     if (urlForProductTamperingChallenge) {
-      if (!utils.contains(osaft.description, `${urlForProductTamperingChallenge}`)) {
-        if (utils.contains(osaft.description, `<a href="${config.get<string>('challenges.overwriteUrlForProductTamperingChallenge')}" target="_blank">`)) {
+      if (!osaft.description.includes(`${urlForProductTamperingChallenge}`)) {
+        if (osaft.description.includes(`<a href="${config.get<string>('challenges.overwriteUrlForProductTamperingChallenge')}" target="_blank">`)) {
           challengeUtils.solve(challenges.changeProductChallenge)
         }
       }
@@ -323,6 +339,18 @@ function leakedApiKeyChallenge () {
   )
 }
 
+function vulnerableDockerImageChallenge () {
+  void checkPatternInFeedbackAndComplaints(
+    challenges.vulnerableDockerImageChallenge,
+    {
+      [Op.and]: [
+        { [Op.like]: '%mongo%' },
+        { [Op.like]: '%4.4.29%' }
+      ]
+    }
+  )
+}
+
 function dangerousIngredients () {
   return config.get<ProductConfig[]>('products')
     .flatMap((product) => product.keywordsForPastebinDataLeakChallenge)
@@ -330,4 +358,20 @@ function dangerousIngredients () {
     .map((keyword) => {
       return { [Op.like]: `%${keyword}%` }
     })
+}
+
+export function checkSystemPromptSimilarity (submission: string, reference: string, threshold = 0.25): boolean {
+  const score = utils.diceCoefficient((submission ?? '').toLowerCase().trim(), reference.toLowerCase().trim(), 3)
+  return score >= threshold
+}
+
+async function systemPromptExtractionChallenge (): Promise<void> {
+  const reference = buildSystemPrompt().toLowerCase().trim()
+  const complaints = await ComplaintModel.findAll().catch(() => [])
+  for (const complaint of complaints) {
+    if (checkSystemPromptSimilarity(complaint.message ?? '', reference)) {
+      challengeUtils.solveIf(challenges.systemPromptExtractionChallenge, () => true)
+      return
+    }
+  }
 }

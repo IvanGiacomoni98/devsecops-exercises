@@ -16,6 +16,8 @@ services:
       DT_DATASOURCE_URL: ${DB_URL}/${DB_NAME}
       DT_DATASOURCE_USERNAME: ${DB_USERNAME}
       DT_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      DT_OUTBOUND_ALLOWED_DESTINATIONS: "external,private,169.254.1.2"
+      DT_TASK_DEFECT_DOJO_UPLOAD_CRON: "*/5 * * * *"
     ports:
       - "8081:8080"
     volumes:
