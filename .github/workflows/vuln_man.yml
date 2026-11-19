@@ -61,68 +61,67 @@ jobs:
           if-no-files-found: error
 
 
-## Exercise Docker SBOM generation
-  # sbom-docker:
-  #   name: Generate docker SBOM
-  #   runs-on: ubuntu-26.04
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       project: ["webgoat", "juice-shop"]
-  #       cdx_spec_version: ["1.6"]
+# Exercise Docker SBOM generation
+  sbom-docker:
+    name: Generate docker SBOM
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ["webgoat", "juice-shop"]
+        cdx_spec_version: ["1.6"]
 
-  #   container:
-  #     image: ghcr.io/cdxgen/cdxgen@sha256:e4b5773b4bdd25ecc0602ab1bdada1efea38ad9a2e354cf6fa6aa13b5671139b # 13.5.0
-  #     options: --user root
+    container:
+      image: ghcr.io/cdxgen/cdxgen@sha256:e4b5773b4bdd25ecc0602ab1bdada1efea38ad9a2e354cf6fa6aa13b5671139b # 13.5.0
+      options: --user root
 
-  #   steps:
-  #     - name: Checkout Repository
-  #       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-  #       with:
-  #         submodules: recursive
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
 
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-  #     - name: Setup Java 25
-  #       if: matrix.project == 'webgoat'
-  #       uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-  #       with:
-  #         java-version: 25
-  #         distribution: temurin
+      - name: Setup Java 25
+        if: matrix.project == 'webgoat'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: 25
+          distribution: temurin
 
-  #     - name: Compile java project
-  #       if: matrix.project == 'webgoat'
-  #       working-directory: vuln_apps/webgoat
-  #       run: mvn -B clean package -DskipTests
+      - name: Compile java project
+        if: matrix.project == 'webgoat'
+        working-directory: vuln_apps/webgoat
+        run: mvn -B clean package -DskipTests
 
-  #     - name: Build Docker image
-  #       id: build-image
-  #       uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-  #       with:
-  #         context: "${{ github.workspace }}/vuln_apps/${{ matrix.project }}"
-  #         push: false
-  #         load: true
-  #         tags: ${{ matrix.project }}:latest
+      - name: Build Docker image
+        id: build-image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: "${{ github.workspace }}/vuln_apps/${{ matrix.project }}"
+          push: false
+          load: true
+          tags: ${{ matrix.project }}:latest
 
-  #     - name: Generate docker SBOMs
-  #       run: >
-  #         cdxgen
-  #         --type docker
-  #         --format cyclonedx
-  #         --spec-version="1.6"
-  #         --project-name="${{ project }}"
-  #         --project-version="build-${{ github.run_number }}"
-  #         -o "${{ project }}-docker_bom.json"
-  #         image:tag
+      - name: Generate docker SBOMs
+        run: >
+          cdxgen
+          --type docker
+          --format json
+          --spec-version="${{ matrix.cdx_spec_version }}"
+          --project-name="${{ matrix.project }}"
+          --project-version="${{ github.run_number }}"
+          -o "${{ matrix.project }}-docker_bom.json" ${{ matrix.project }}:latest
 
-  #     - name: upload Artifacts
-  #       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-  #       with:
-  #         name: sbom-${{matrix.project}}-docker
-  #         path: ${{ matrix.project }}-docker_bom.json
-  #         retention-days: 5
-  #         if-no-files-found: error
+      - name: upload Artifacts
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{matrix.project}}-docker
+          path: ${{ matrix.project }}-docker_bom.json
+          retention-days: 5
+          if-no-files-found: error
 
 ## Exercise Merge multiple SBOMs
   # merge-sbom:
